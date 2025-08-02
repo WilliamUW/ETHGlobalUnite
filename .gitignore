@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+/out
+/cache
+/broadcast
+contracts/ethereum/out/
+contracts/ethereum/cache/
+contracts/near/target/
+contracts/aptos/.aptos/
+
+# Environment files
+.env*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Logs
+*.log
