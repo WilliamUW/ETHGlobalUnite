@@ -10,8 +10,6 @@ export const config = {
   baseSepolia: {
     chainId: 84532,
     name: 'Base Sepolia',
-    rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
-    privateKey: process.env.BASE_SEPOLIA_PRIVATE_KEY,
     
     // Deployed 1inch LOP contract on Base Sepolia
     limitOrderProtocol: '0xE53136D9De56672e8D2665C98653AC7b8A60Dc44',
@@ -29,18 +27,7 @@ export const config = {
 
   // NEAR Configuration
   near: {
-    networkId: process.env.NEAR_NETWORK || 'testnet',
-    nodeUrl: process.env.NEAR_NETWORK === 'mainnet' 
-      ? 'https://rpc.mainnet.near.org'
-      : 'https://rpc.testnet.near.org',
-    walletUrl: process.env.NEAR_NETWORK === 'mainnet'
-      ? 'https://wallet.mainnet.near.org'
-      : 'https://wallet.testnet.near.org',
-    helperUrl: process.env.NEAR_NETWORK === 'mainnet'
-      ? 'https://helper.mainnet.near.org'
-      : 'https://helper.testnet.near.org',
-    accountId: process.env.NEAR_ACCOUNT_ID,
-    privateKey: process.env.NEAR_PRIVATE_KEY,
+    networkId: 'testnet',
     escrowContractId: process.env.NEAR_ESCROW_CONTRACT_ID,
     
     // NEAR tokens
@@ -59,12 +46,7 @@ export const config = {
 
   // Aptos Configuration
   aptos: {
-    network: process.env.APTOS_NETWORK || 'testnet',
-    nodeUrl: process.env.APTOS_NETWORK === 'mainnet'
-      ? 'https://fullnode.mainnet.aptoslabs.com'
-      : 'https://fullnode.testnet.aptoslabs.com',
-    privateKey: process.env.APTOS_PRIVATE_KEY,
-    accountAddress: process.env.APTOS_ACCOUNT_ADDRESS,
+    network: 'testnet',
     escrowAddress: process.env.APTOS_ESCROW_ADDRESS,
     
     // Aptos tokens
@@ -346,27 +328,36 @@ export function validateConfig() {
   const errors = [];
 
   // Check required Base Sepolia config
-  if (!config.baseSepolia.privateKey) {
-    errors.push('BASE_SEPOLIA_PRIVATE_KEY is required');
+  if (!process.env.BASE_SEPOLIA_PRIVATE_KEY_1) {
+    errors.push('BASE_SEPOLIA_PRIVATE_KEY_1 is required');
+  }
+  if (!process.env.BASE_SEPOLIA_PRIVATE_KEY_2) {
+    errors.push('BASE_SEPOLIA_PRIVATE_KEY_2 is required');
   }
 
   // Check required NEAR config
-  if (!config.near.accountId) {
-    errors.push('NEAR_ACCOUNT_ID is required');
+  if (!process.env.NEAR_ACCOUNT_ID_1) {
+    errors.push('NEAR_ACCOUNT_ID_1 is required');
   }
-  if (!config.near.privateKey) {
-    errors.push('NEAR_PRIVATE_KEY is required');
+  if (!process.env.NEAR_PRIVATE_KEY_1) {
+    errors.push('NEAR_PRIVATE_KEY_1 is required');
+  }
+  if (!process.env.NEAR_ACCOUNT_ID_2) {
+    errors.push('NEAR_ACCOUNT_ID_2 is required');
+  }
+  if (!process.env.NEAR_PRIVATE_KEY_2) {
+    errors.push('NEAR_PRIVATE_KEY_2 is required');
   }
   if (!config.near.escrowContractId) {
     errors.push('NEAR_ESCROW_CONTRACT_ID is required');
   }
 
   // Check required Aptos config
-  if (!config.aptos.privateKey) {
-    errors.push('APTOS_PRIVATE_KEY is required');
+  if (!process.env.APTOS_PRIVATE_KEY_1) {
+    errors.push('APTOS_PRIVATE_KEY_1 is required');
   }
-  if (!config.aptos.accountAddress) {
-    errors.push('APTOS_ACCOUNT_ADDRESS is required');
+  if (!process.env.APTOS_PRIVATE_KEY_2) {
+    errors.push('APTOS_PRIVATE_KEY_2 is required');
   }
   if (!config.aptos.escrowAddress) {
     errors.push('APTOS_ESCROW_ADDRESS is required');

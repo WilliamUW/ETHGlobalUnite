@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
-import { connect, keyStores, WalletConnection } from 'near-api-js';
+import nearApi from 'near-api-js';
+const { connect, keyStores, WalletConnection } = nearApi;
 import { randomBytes, createHash } from 'crypto';
 
 /**

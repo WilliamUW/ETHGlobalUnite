@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { AptosClient, AptosAccount, HexString, BCS } from 'aptos';
+import { Aptos, Account, Ed25519PrivateKey } from '@aptos-labs/ts-sdk';
 import { randomBytes, createHash } from 'crypto';
 
 /**
@@ -39,13 +39,13 @@ export class ETHAptosOrchestrator {
         );
 
         // Initialize Aptos connection
-        this.aptosClient = new AptosClient(this.config.aptos.nodeUrl);
+        this.aptosClient = new Aptos(this.config.aptos.nodeUrl);
         
         // Initialize 2 Aptos accounts from private keys
-        const privateKey1 = HexString.ensure(process.env.APTOS_PRIVATE_KEY_1).toUint8Array();
-        const privateKey2 = HexString.ensure(process.env.APTOS_PRIVATE_KEY_2).toUint8Array();
-        this.aptosAccount1 = new AptosAccount(privateKey1);
-        this.aptosAccount2 = new AptosAccount(privateKey2);
+        const privateKey1 = new Ed25519PrivateKey(process.env.APTOS_PRIVATE_KEY_1);
+        const privateKey2 = new Ed25519PrivateKey(process.env.APTOS_PRIVATE_KEY_2);
+        this.aptosAccount1 = Account.fromPrivateKey({ privateKey: privateKey1 });
+        this.aptosAccount2 = Account.fromPrivateKey({ privateKey: privateKey2 });
     }
 
     /**
@@ -134,9 +134,9 @@ export class ETHAptosOrchestrator {
                 ]
             };
 
-            const aptosAccount = new AptosAccount(HexString.ensure(process.env.APTOS_PRIVATE_KEY_2).toUint8Array());
+            const aptosAccount = this.aptosAccount2;
             const aptosTransaction = await this.aptosClient.generateTransaction(
-                aptosAccount.address(),
+                aptosAccount.accountAddress,
                 payload
             );
 
@@ -189,9 +189,9 @@ export class ETHAptosOrchestrator {
                 ]
             };
 
-            const aptosAccount = new AptosAccount(HexString.ensure(process.env.APTOS_PRIVATE_KEY_1).toUint8Array());
+            const aptosAccount = this.aptosAccount1;
             const aptosTransaction = await this.aptosClient.generateTransaction(
-                aptosAccount.address(),
+                aptosAccount.accountAddress,
                 payload
             );
 
@@ -370,7 +370,7 @@ export class ETHAptosOrchestrator {
             };
 
             const aptosTransaction = await this.aptosClient.generateTransaction(
-                aptosAccount.address(),
+                aptosAccount.accountAddress,
                 payload
             );
 
@@ -500,8 +500,8 @@ export class ETHAptosOrchestrator {
                 wallet2: await this.baseSigner2.getAddress(),
             },
             aptos: {
-                wallet1: this.aptosAccount1.address().hex(),
-                wallet2: this.aptosAccount2.address().hex(),
+                wallet1: this.aptosAccount1.accountAddress.toString(),
+                wallet2: this.aptosAccount2.accountAddress.toString(),
             }
         };
     }
@@ -567,7 +567,7 @@ export class ETHAptosOrchestrator {
     async getAptosBalance() {
         try {
             const resources = await this.aptosClient.getAccountResources(
-                this.aptosAccount1.address()
+                this.aptosAccount1.accountAddress
             );
             
             const coinStore = resources.find(

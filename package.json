@@ -1,42 +1,29 @@
 {
-  "name": "1inch-cross-chain-fusion-plus",
+  "name": "aptos-swap-demo",
   "version": "1.0.0",
-  "description": "Cross-chain swap extension for 1inch Fusion+ enabling ETH<>NEAR and ETH<>Aptos swaps",
-  "main": "index.js",
-  "type": "module",
+  "private": true,
   "scripts": {
-    "build": "forge build && pnpm build:near && pnpm build:aptos",
-    "build:near": "cd contracts/near && cargo build --target wasm32-unknown-unknown --release",
-    "build:aptos": "cd contracts/aptos && aptos move compile",
-    "test": "forge test && pnpm test:near && pnpm test:aptos",
-    "test:near": "cd contracts/near && cargo test",
-    "test:aptos": "cd contracts/aptos && aptos move test",
-    "lint": "prettier --check .",
-    "format": "prettier --write .",
-    "dev": "node src/index.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
-    "@1inch/cross-chain-sdk": "^2.0.0",
-    "@1inch/byte-utils": "^2.0.0",
-    "ethers": "^6.0.0",
-    "near-api-js": "^4.0.0",
-    "aptos": "^1.21.0",
-    "dotenv": "^16.0.0"
+    "@aptos-labs/ts-sdk": "^1.23.0",
+    "ethers": "^6.15.0",
+    "next": "14.2.3",
+    "react": "^18",
+    "react-dom": "^18"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "prettier": "^3.0.0",
-    "typescript": "^5.0.0"
-  },
-  "keywords": [
-    "1inch",
-    "cross-chain",
-    "fusion-plus",
-    "NEAR",
-    "Aptos",
-    "HTLC",
-    "escrow"
-  ],
-  "author": "Your Name",
-  "license": "MIT"
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.3",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
 }
