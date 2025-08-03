@@ -3,16 +3,14 @@
 module escrow::cross_chain_escrow {
     use std::error;
     use std::signer;
-    use std::string::{Self, String};
+    use std::string::String;
     use std::vector;
-    use aptos_framework::aptos_hash;
+    use aptos_std::hash;
     use aptos_framework::coin::{Self, Coin};
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::timestamp;
     use aptos_framework::event;
-    use aptos_framework::account;
     use aptos_std::table::{Self, Table};
-    use aptos_std::type_info;
 
     //
     // Errors
@@ -40,6 +38,10 @@ module escrow::cross_chain_escrow {
     const EONLY_OWNER: u64 = 10;
     /// Invalid hash length
     const EINVALID_HASH_LENGTH: u64 = 11;
+    /// Contract paused
+    const ECONTRACT_PAUSED: u64 = 12;
+    /// Invalid amount
+    const EINVALID_AMOUNT: u64 = 13;
 
     //
     // Constants
@@ -49,6 +51,8 @@ module escrow::cross_chain_escrow {
     const MIN_TIMELOCK_DURATION: u64 = 3600;
     /// Maximum timelock duration (24 hours in seconds)
     const MAX_TIMELOCK_DURATION: u64 = 86400;
+    /// Minimum deposit amount (0.01 APT)
+    const MIN_DEPOSIT_AMOUNT: u64 = 1000000; // 0.01 APT in octas
 
     //
     // Structs
@@ -104,11 +108,22 @@ module escrow::cross_chain_escrow {
         max_timelock: u64,
         /// Total orders created
         total_orders: u64,
+        /// Contract paused state
+        is_paused: bool,
+        /// Service fee rate (basis points, e.g., 100 = 1%)
+        fee_rate: u64,
+        /// Collected fees
+        collected_fees: u64,
     }
 
     /// AptosCoin deposits for orders
     struct CoinDeposits has key {
         deposits: Table<vector<u8>, Coin<AptosCoin>>,
+    }
+
+    /// Fee collection resource
+    struct FeeCollection has key {
+        fees: Coin<AptosCoin>,
     }
 
     //
@@ -143,6 +158,32 @@ module escrow::cross_chain_escrow {
         amount: u64,
     }
 
+    #[event]
+    struct ContractPaused has drop, store {
+        is_paused: bool,
+    }
+
+    #[event]
+    struct FeeRateUpdated has drop, store {
+        old_rate: u64,
+        new_rate: u64,
+    }
+
+    #[event]
+    struct EmergencyWithdrawal has drop, store {
+        owner: address,
+        amount: u64,
+    }
+
+    //
+    // Helper Functions
+    //
+
+    /// Generate SHA3-256 hash (using available hash functions)
+    fun sha3_256(data: vector<u8>): vector<u8> {
+        hash::sha3_256(data)
+    }
+
     //
     // Functions
     //
@@ -159,6 +200,9 @@ module escrow::cross_chain_escrow {
             min_timelock: MIN_TIMELOCK_DURATION,
             max_timelock: MAX_TIMELOCK_DURATION,
             total_orders: 0,
+            is_paused: false,
+            fee_rate: 100, // 1% default fee
+            collected_fees: 0,
         };
 
         // Initialize supported chains
@@ -174,8 +218,14 @@ module escrow::cross_chain_escrow {
             deposits: table::new(),
         };
 
+        // Create fee collection
+        let fee_collection = FeeCollection {
+            fees: coin::zero<AptosCoin>(),
+        };
+
         move_to(account, escrow_state);
         move_to(account, coin_deposits);
+        move_to(account, fee_collection);
     }
 
     /// Create a new HTLC for incoming swap from source chain
@@ -197,12 +247,20 @@ module escrow::cross_chain_escrow {
         let escrow_state = borrow_global_mut<EscrowState>(escrow_addr);
         let coin_deposits = borrow_global_mut<CoinDeposits>(escrow_addr);
 
+        // Check if contract is paused
+        assert!(!escrow_state.is_paused, error::unavailable(ECONTRACT_PAUSED));
+
         // Validate parameters
         assert!(
             table::contains(&escrow_state.supported_chains, src_chain),
             error::invalid_argument(EUNSUPPORTED_CHAIN)
         );
         
+        assert!(
+            deposit_amount >= MIN_DEPOSIT_AMOUNT,
+            error::invalid_argument(EINVALID_AMOUNT)
+        );
+
         let current_time = timestamp::now_seconds();
         assert!(
             timelock > current_time + escrow_state.min_timelock,
@@ -287,7 +345,7 @@ module escrow::cross_chain_escrow {
         );
 
         // Verify secret matches hash lock
-        let secret_hash = aptos_hash::sha3_256(secret);
+        let secret_hash = sha3_256(secret);
         assert!(
             secret_hash == swap_order.hash_lock,
             error::invalid_argument(EINVALID_SECRET)
@@ -357,7 +415,6 @@ module escrow::cross_chain_escrow {
     // View functions
     //
 
-    /// Get swap order details
     #[view]
     public fun get_swap_order(escrow_addr: address, order_hash: vector<u8>): SwapOrder acquires EscrowState {
         let escrow_state = borrow_global<EscrowState>(escrow_addr);
@@ -368,7 +425,6 @@ module escrow::cross_chain_escrow {
         *table::borrow(&escrow_state.swap_orders, order_hash)
     }
 
-    /// Check if HTLC is active
     #[view]
     public fun is_htlc_active(escrow_addr: address, order_hash: vector<u8>): bool acquires EscrowState {
         let escrow_state = borrow_global<EscrowState>(escrow_addr);
@@ -380,21 +436,18 @@ module escrow::cross_chain_escrow {
         }
     }
 
-    /// Verify hash lock matches secret
     #[view]
     public fun verify_secret(secret: vector<u8>, hash_lock: vector<u8>): bool {
-        let secret_hash = aptos_hash::sha3_256(secret);
+        let secret_hash = sha3_256(secret);
         secret_hash == hash_lock
     }
 
-    /// Get contract owner
     #[view]
     public fun get_owner(escrow_addr: address): address acquires EscrowState {
         let escrow_state = borrow_global<EscrowState>(escrow_addr);
         escrow_state.owner
     }
 
-    /// Check if chain is supported
     #[view]
     public fun is_chain_supported(escrow_addr: address, chain: String): bool acquires EscrowState {
         let escrow_state = borrow_global<EscrowState>(escrow_addr);
@@ -405,18 +458,22 @@ module escrow::cross_chain_escrow {
         }
     }
 
-    /// Get timelock limits
     #[view]
     public fun get_timelock_limits(escrow_addr: address): (u64, u64) acquires EscrowState {
         let escrow_state = borrow_global<EscrowState>(escrow_addr);
         (escrow_state.min_timelock, escrow_state.max_timelock)
     }
 
-    /// Get total orders count
     #[view]
     public fun get_total_orders(escrow_addr: address): u64 acquires EscrowState {
         let escrow_state = borrow_global<EscrowState>(escrow_addr);
         escrow_state.total_orders
+    }
+
+    #[view]
+    public fun is_contract_paused(escrow_addr: address): bool acquires EscrowState {
+        let escrow_state = borrow_global<EscrowState>(escrow_addr);
+        escrow_state.is_paused
     }
 
     //
@@ -495,20 +552,75 @@ module escrow::cross_chain_escrow {
         escrow_state.owner = new_owner;
     }
 
-    /// Emergency withdrawal (owner only)
+    /// Pause/unpause contract (owner only)
+    public entry fun set_contract_paused(
+        account: &signer,
+        escrow_addr: address,
+        is_paused: bool,
+    ) acquires EscrowState {
+        let escrow_state = borrow_global_mut<EscrowState>(escrow_addr);
+        assert!(
+            signer::address_of(account) == escrow_state.owner,
+            error::permission_denied(EONLY_OWNER)
+        );
+        
+        escrow_state.is_paused = is_paused;
+        
+        event::emit(ContractPaused {
+            is_paused,
+        });
+    }
+
+    /// Update fee rate (owner only)
+    public entry fun update_fee_rate(
+        account: &signer,
+        escrow_addr: address,
+        new_fee_rate: u64,
+    ) acquires EscrowState {
+        let escrow_state = borrow_global_mut<EscrowState>(escrow_addr);
+        assert!(
+            signer::address_of(account) == escrow_state.owner,
+            error::permission_denied(EONLY_OWNER)
+        );
+        assert!(
+            new_fee_rate <= 1000, // Max 10%
+            error::invalid_argument(EINVALID_AMOUNT)
+        );
+        
+        let old_rate = escrow_state.fee_rate;
+        escrow_state.fee_rate = new_fee_rate;
+        
+        event::emit(FeeRateUpdated {
+            old_rate,
+            new_rate: new_fee_rate,
+        });
+    }
+
+    /// Emergency withdrawal (owner only) - simplified implementation
     public entry fun emergency_withdraw(
         account: &signer,
         escrow_addr: address,
         amount: u64,
-    ) acquires EscrowState, CoinDeposits {
+    ) acquires EscrowState, FeeCollection {
         let escrow_state = borrow_global<EscrowState>(escrow_addr);
         assert!(
             signer::address_of(account) == escrow_state.owner,
             error::permission_denied(EONLY_OWNER)
         );
         
-        // For emergency withdrawal, we would need additional logic
-        // to handle coin extraction from the contract
-        abort error::unimplemented(0)
+        let fee_collection = borrow_global_mut<FeeCollection>(escrow_addr);
+        let available_amount = coin::value(&fee_collection.fees);
+        assert!(
+            amount <= available_amount,
+            error::invalid_argument(EINSUFFICIENT_BALANCE)
+        );
+        
+        let withdrawal = coin::extract(&mut fee_collection.fees, amount);
+        coin::deposit(signer::address_of(account), withdrawal);
+        
+        event::emit(EmergencyWithdrawal {
+            owner: signer::address_of(account),
+            amount,
+        });
     }
 }

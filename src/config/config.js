@@ -2,36 +2,29 @@ import 'dotenv/config';
 
 /**
  * Configuration for 1inch Cross-Chain Fusion+ Extension
- * Supports ETH<>NEAR and ETH<>Aptos swaps
+ * Uses deployed 1inch LOP on Base Sepolia + custom HTLC contracts on NEAR/Aptos
  */
 
 export const config = {
-  // Ethereum Configuration
-  eth: {
-    rpcUrl: process.env.ETH_RPC_URL || 'https://eth.merkle.io',
-    privateKey: process.env.ETH_PRIVATE_KEY,
-    crossChainResolverAddress: process.env.ETH_CROSS_CHAIN_RESOLVER_ADDRESS,
-    crossChainResolverABI: [
-      // Add ABI here after contract compilation
-      'function initiateSwap(bytes32,address,uint256,string,string,string,uint256,bytes32,uint256) external payable',
-      'function completeSwap(bytes32,bytes32,address) external',
-      'function cancelSwap(bytes32) external',
-      'function getSwapOrder(bytes32) external view returns (tuple)',
-      'function isSwapActive(bytes32) external view returns (bool)',
-    ],
-    // Network configuration
-    networks: {
-      mainnet: {
-        chainId: 1,
-        rpcUrl: 'https://eth.merkle.io',
-        escrowFactory: '0x...', // 1inch Escrow Factory on mainnet
-      },
-      sepolia: {
-        chainId: 11155111,
-        rpcUrl: 'https://eth-sepolia.public.blastapi.io',
-        escrowFactory: '0x...', // 1inch Escrow Factory on sepolia
-      },
+  // Base Sepolia Configuration (Using deployed 1inch LOP)
+  baseSepolia: {
+    chainId: 84532,
+    name: 'Base Sepolia',
+    rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
+    privateKey: process.env.BASE_SEPOLIA_PRIVATE_KEY,
+    
+    // Deployed 1inch LOP contract on Base Sepolia
+    limitOrderProtocol: '0xE53136D9De56672e8D2665C98653AC7b8A60Dc44',
+    
+    // Base Sepolia token addresses
+    tokens: {
+      ETH: '0x0000000000000000000000000000000000000000', // Native ETH
+      WETH: '0x4200000000000000000000000000000000000006', // Wrapped ETH on Base
+      USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC on Base Sepolia
     },
+    
+    // Explorer
+    explorer: 'https://sepolia-explorer.base.org',
   },
 
   // NEAR Configuration
@@ -49,6 +42,13 @@ export const config = {
     accountId: process.env.NEAR_ACCOUNT_ID,
     privateKey: process.env.NEAR_PRIVATE_KEY,
     escrowContractId: process.env.NEAR_ESCROW_CONTRACT_ID,
+    
+    // NEAR tokens
+    tokens: {
+      NEAR: 'NEAR',
+      USDC: 'usdc.fakes.testnet', // USDC on NEAR testnet
+    },
+    
     // Gas configuration
     gas: {
       create_htlc: '100000000000000', // 100 TGas
@@ -66,6 +66,13 @@ export const config = {
     privateKey: process.env.APTOS_PRIVATE_KEY,
     accountAddress: process.env.APTOS_ACCOUNT_ADDRESS,
     escrowAddress: process.env.APTOS_ESCROW_ADDRESS,
+    
+    // Aptos tokens
+    tokens: {
+      APT: '0x1::aptos_coin::AptosCoin',
+      USDC: '0x...::usdc::USDC', // To be deployed
+    },
+    
     // Gas configuration
     gas: {
       maxGasAmount: 10000,
@@ -73,20 +80,185 @@ export const config = {
     },
   },
 
-  // 1inch API Configuration (optional)
-  oneinch: {
-    apiKey: process.env.ONEINCH_API_KEY,
-    baseUrl: 'https://api.1inch.dev',
-    // Supported networks for 1inch API
-    networks: {
-      ethereum: 1,
-      polygon: 137,
-      bsc: 56,
-      arbitrum: 42161,
-      optimism: 10,
-      avalanche: 43114,
+  // 1inch LOP ABI (from the provided ABI.json file)
+  lopABI: [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "salt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "Address",
+              "name": "maker",
+              "type": "uint256"
+            },
+            {
+              "internalType": "Address",
+              "name": "receiver",
+              "type": "uint256"
+            },
+            {
+              "internalType": "Address",
+              "name": "makerAsset",
+              "type": "uint256"
+            },
+            {
+              "internalType": "Address",
+              "name": "takerAsset",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "makingAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "takingAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "MakerTraits",
+              "name": "makerTraits",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IOrderMixin.Order",
+          "name": "order",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "r",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "vs",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "TakerTraits",
+          "name": "takerTraits",
+          "type": "uint256"
+        }
+      ],
+      "name": "fillOrder",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
     },
-  },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "salt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "Address",
+              "name": "maker",
+              "type": "uint256"
+            },
+            {
+              "internalType": "Address",
+              "name": "receiver",
+              "type": "uint256"
+            },
+            {
+              "internalType": "Address",
+              "name": "makerAsset",
+              "type": "uint256"
+            },
+            {
+              "internalType": "Address",
+              "name": "takerAsset",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "makingAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "takingAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "MakerTraits",
+              "name": "makerTraits",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IOrderMixin.Order",
+          "name": "order",
+          "type": "tuple"
+        }
+      ],
+      "name": "hashOrder",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "maker",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "orderHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "remainingInvalidatorForOrder",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
 
   // Swap Configuration
   swap: {
@@ -127,10 +299,10 @@ export const config = {
     
     // Supported swap pairs
     supportedPairs: [
-      { src: 'ETH', dst: 'NEAR', tokens: ['ETH', 'USDC', 'USDT'] },
-      { src: 'NEAR', dst: 'ETH', tokens: ['ETH', 'USDC', 'USDT'] },
-      { src: 'ETH', dst: 'APTOS', tokens: ['ETH', 'USDC', 'USDT'] },
-      { src: 'APTOS', dst: 'ETH', tokens: ['ETH', 'USDC', 'USDT'] },
+      { src: 'BASE', dst: 'NEAR', tokens: ['ETH', 'USDC'] },
+      { src: 'NEAR', dst: 'BASE', tokens: ['NEAR', 'USDC'] },
+      { src: 'BASE', dst: 'APTOS', tokens: ['ETH', 'USDC'] },
+      { src: 'APTOS', dst: 'BASE', tokens: ['APT', 'USDC'] },
     ],
   },
 
@@ -173,12 +345,9 @@ export const config = {
 export function validateConfig() {
   const errors = [];
 
-  // Check required Ethereum config
-  if (!config.eth.privateKey) {
-    errors.push('ETH_PRIVATE_KEY is required');
-  }
-  if (!config.eth.crossChainResolverAddress) {
-    errors.push('ETH_CROSS_CHAIN_RESOLVER_ADDRESS is required');
+  // Check required Base Sepolia config
+  if (!config.baseSepolia.privateKey) {
+    errors.push('BASE_SEPOLIA_PRIVATE_KEY is required');
   }
 
   // Check required NEAR config

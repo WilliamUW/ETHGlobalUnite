@@ -1,10 +1,10 @@
 [package]
 name = "AptosEscrow"
 version = "1.0.0"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Will <will@nospam.com>"]
 
 [addresses]
-escrow = "_"
+escrow = "0xad80d336acde3c68e2d92cf4bc81436a624d5626ea67ee363231249becf9f06f"
 
 [dev-addresses]
 escrow = "0x1"
